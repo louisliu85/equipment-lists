@@ -12,7 +12,9 @@
             background-color: #cbd5e1; 
             font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'PingFang TC', 'Microsoft JhengHei', sans-serif;
             color: #1e293b;
-            min-height: 100vh;
+            /* 修改：改為固定高度並隱藏全域捲動，讓捲動發生在手機窗格內 */
+            height: 100dvh;
+            overflow: hidden;
             margin: 0;
             -webkit-tap-highlight-color: transparent;
         }
@@ -63,8 +65,8 @@
 </head>
 <body class="flex justify-center items-start">
 
-    <!-- 📱 核心：強制手機比例窗格 -->
-    <div class="w-full max-w-[430px] bg-white min-h-screen relative shadow-[0_0_40px_rgba(0,0,0,0.15)] sm:border-x sm:border-gray-200 flex flex-col overflow-x-hidden">
+    <!-- 📱 核心：強制手機比例窗格 (修改：加入 id 並改為內部捲動 overflow-y-auto) -->
+    <div id="app-container" class="w-full max-w-[430px] bg-white h-full relative shadow-[0_0_40px_rgba(0,0,0,0.15)] sm:border-x sm:border-gray-200 flex flex-col overflow-y-auto overflow-x-hidden">
 
         <!-- 置頂標題 -->
         <header class="sticky top-0 z-30 bg-white/95 backdrop-blur-xl border-b border-gray-100 shadow-sm pt-safe w-full flex-none">
@@ -88,30 +90,43 @@
                     <i class="fas fa-info"></i>
                 </button>
             </div>
+
+            <!-- 新增：將分類選單移至 header 內，這樣就能跟標題一起凍結在最上方 -->
+            <nav id="sticky-nav" class="hidden w-full px-2 pb-3 transition-all duration-300">
+                <div class="flex gap-2 overflow-x-auto no-scrollbar px-2 snap-x" id="category-tabs">
+                    <!-- 標籤會由 JS 動態生成 -->
+                </div>
+            </nav>
         </header>
 
         <!-- 📚 視圖 1：雜誌架主頁面 -->
-        <main id="home-view" class="flex-1 wood-rack pb-12 w-full flex flex-col">
+        <main id="home-view" class="flex-1 wood-rack pb-6 w-full flex flex-col">
             <!-- 裝飾性頂部 -->
             <div class="w-full pt-6 pb-2 text-center text-[#8a7258] font-bold text-sm tracking-widest opacity-60">
                 請點選你要找的裝備清單
             </div>
             
             <!-- 雜誌架容器 (動態生成) -->
-            <div id="rack-container" class="w-full px-4 flex flex-col mt-2">
+            <div id="rack-container" class="w-full px-4 flex flex-col mt-2 flex-1">
                 <!-- 由 JS 動態生成層架與雜誌 -->
             </div>
+
+            <!-- 頁尾：累積造訪次數 (移至雜誌架頁面內) -->
+            <footer class="w-full py-4 flex-none mt-auto">
+                <div class="flex justify-center items-center gap-1.5 text-xs text-gray-400 font-medium tracking-wide">
+                    <span>累積造訪</span>
+                    <!-- hitwebcounter Code START -->
+                    <a href="https://www.hitwebcounter.com/character-counter" target="_blank" rel="noopener" title="https://www.hitwebcounter.com/character-counter" class="flex items-center hover:opacity-80 transition-opacity">
+                        <img src="https://www.hitwebcounter.com/counter/counter.php?page=21504513&amp;style=0007&amp;nbdigits=7&amp;type=page" alt="hitwebcounter" decoding="async" class="h-[16px] w-auto object-contain" />
+                    </a>
+                    <!-- hitwebcounter Code END -->
+                    <span>次</span>
+                </div>
+            </footer>
         </main>
 
         <!-- 📋 視圖 2：清單詳細頁面 (預設隱藏) -->
         <main id="detail-view" class="hidden flex-1 w-full bg-white flex flex-col pb-10">
-            <!-- 水平滑動分類選單 -->
-            <nav class="w-full px-2 pt-3 pb-3 border-b border-gray-50 bg-white/95 sticky top-0 z-20">
-                <div class="flex gap-2 overflow-x-auto no-scrollbar px-2 snap-x" id="category-tabs">
-                    <!-- 標籤會由 JS 動態生成 -->
-                </div>
-            </nav>
-
             <div class="w-full px-4 mt-5 flex-1">
                 <div class="flex items-center justify-between mb-5 px-1">
                     <h2 id="current-category-title" class="text-xl font-bold text-gray-800"></h2>
@@ -170,6 +185,7 @@
         const detailView = document.getElementById('detail-view');
         const backBtn = document.getElementById('back-btn');
         const headerTitle = document.getElementById('header-title');
+        const stickyNav = document.getElementById('sticky-nav'); // 新增膠囊選單容器
         
         const rackContainer = document.getElementById('rack-container');
         const tabsContainer = document.getElementById('category-tabs');
@@ -182,6 +198,7 @@
             homeView.classList.add('fade-in');
             detailView.classList.add('hidden');
             backBtn.classList.add('hidden');
+            stickyNav.classList.add('hidden'); // 回首頁時隱藏膠囊選單
             headerTitle.textContent = '裝備清單小幫手';
         }
 
@@ -192,13 +209,14 @@
             detailView.classList.remove('hidden');
             detailView.classList.add('fade-in');
             backBtn.classList.remove('hidden');
+            stickyNav.classList.remove('hidden'); // 進入內頁時顯示膠囊選單
             
             // 重新渲染該頁內容
             renderTabs();
             renderGallery();
             
-            // 切換時自動回到頂部
-            window.scrollTo({ top: 0, behavior: 'smooth' });
+            // 修改：切換時自動回到頂部 (改為讓手機窗格回到頂部)
+            document.getElementById('app-container').scrollTo({ top: 0, behavior: 'smooth' });
         }
 
         backBtn.addEventListener('click', showHome);
@@ -241,6 +259,8 @@
         // --- 4. 渲染清單詳細頁 ---
         function renderTabs() {
             tabsContainer.innerHTML = '';
+            let activeBtn = null; // 新增：用來記錄當下被啟動的按鈕
+
             equipmentData.forEach(cat => {
                 const btn = document.createElement('button');
                 const isActive = cat.id === currentCategory;
@@ -254,7 +274,20 @@
                     renderGallery();
                 };
                 tabsContainer.appendChild(btn);
+
+                // 如果是啟動狀態，就把這個按鈕記下來
+                if (isActive) {
+                    activeBtn = btn;
+                }
             });
+
+            // 新增：讓目前的分類膠囊自動平滑捲動到畫面中間
+            if (activeBtn) {
+                // 使用 setTimeout 確保按鈕已經顯示在畫面上才進行捲動運算
+                setTimeout(() => {
+                    activeBtn.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+                }, 50);
+            }
         }
 
         function renderGallery() {
